@@ -4,13 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = "0.20.1"
+bevy = "0.20"
+rand = "0.10"
 
-# Only needed if you use `rand` (rand 0.10 pairs with getrandom 0.4).
-# Skip these lines if you don't.
-# rand = "0.10"
-# [target.'cfg(target_arch = "wasm32")'.dependencies]
-# getrandom = { version = "0.4", features = ["wasm_js"] }
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.4", features = ["wasm_js"] }
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
