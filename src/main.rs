@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use rand::RngExt;
 
-const GRID_WIDTH: usize = 5;
-const GRID_HEIGHT: usize = 8;
+const GRID_WIDTH: i32 = 5;
+const GRID_HEIGHT: i32 = 8;
 
 const GRID: Vec2 = Vec2::new(GRID_WIDTH as f32, GRID_HEIGHT as f32);
 const CELL_SIZE: f32 = 40.0;
@@ -21,6 +21,15 @@ fn main() {
         .add_systems(Startup, setup.spawn())
         // Choosing
         .add_systems(OnEnter(Phase::Choosing), spawn_hand.spawn())
+        .add_systems(
+            Update,
+            (
+                move_hand,
+            )
+                .chain()
+                .run_if(in_state(Phase::Choosing)),
+        )
+        .add_systems(Update, (update_world_pos, update_hand_world_pos))
         // .add_systems(
         //     Update,
         //     (move_hand, rotate_hand, drop_hand)
@@ -45,6 +54,25 @@ struct Item(ItemKind);
 
 #[derive(Component, Clone, Copy, PartialEq, Default)]
 struct Position(i32, i32);
+
+#[derive(Component, Clone, Copy, PartialEq, Default)]
+struct Hand;
+
+#[derive(Component, Clone, Copy, PartialEq, Default)]
+struct PositionInHand(i32, i32);
+
+impl PositionInHand {
+    fn to_hand_translation(&self) -> Vec3 {
+        let PositionInHand(x, y) = *self;
+
+        let pos = Vec3::new(x as f32, y as f32, 0.0);
+        pos * CELL_SIZE
+    }
+
+    fn to_world_translation(&self, hand_transform: Vec3) -> Vec3 {
+        self.to_hand_translation()
+    }
+}
 
 impl Position {
     fn to_world(&self) -> Vec3 {
@@ -81,18 +109,66 @@ fn spawn_hand() -> impl SceneList {
     let item_a = Item(rng.random_range(0..3));
     let item_b = Item(rng.random_range(0..3));
 
-    let pos_a = Position(2, GRID_HEIGHT as i32 + 1);
-    let pos_b = Position(2, GRID_HEIGHT as i32 + 2);
-    bsn_list! {
-        item_a
-        Text2d::new(item_a.0.to_string())
-        pos_a
-        Transform::from_translation(pos_a.to_world())
-        --
-        item_b
-        Text2d::new(item_b.0.to_string())
-        pos_b
-        Transform::from_translation(pos_b.to_world())
+    let hand_pos = Position(2, GRID_HEIGHT as i32 + 1);
+    let hand_pos_a = PositionInHand(0, 0);
+    let hand_pos_b = PositionInHand(1, 0);
+
+    bsn! {
+        Hand
+        hand_pos
+        Transform::from_translation(hand_pos.to_world())
+        Children [
+            item_a
+            Text2d::new(item_a.0.to_string())
+            hand_pos_a
+            Transform::from_translation(hand_pos_a.to_hand_translation())
+            --
+            item_b
+            Text2d::new(item_b.0.to_string())
+            hand_pos_b
+            Transform::from_translation(hand_pos_b.to_hand_translation())
+        ]
+    }
+}
+
+fn move_hand(
+    keys: Res<ButtonInput<KeyCode>>,
+    hand: Single<(&mut Position, &Children), With<Hand>>,
+    hand_item_pos: Query<&PositionInHand>,
+) {
+    let dx = keys.just_pressed(KeyCode::ArrowRight) as i32
+        - keys.just_pressed(KeyCode::ArrowLeft) as i32;
+    if dx == 0 {
+        return; // no movement
+    }
+
+    let (mut pos, children) = hand.into_inner();
+    let next_x = pos.0 + dx;
+
+    let hand_size = children
+        .into_iter()
+        .flat_map(|child| hand_item_pos.get(*child))
+        .map(|pos| pos.0 + 1)
+        .max()
+        .unwrap_or(1);
+
+    if next_x < 0 || GRID_WIDTH - hand_size < next_x {
+        return; // outside
+    }
+    pos.0 = next_x;
+}
+
+fn update_world_pos(pos: Query<(&Position, &mut Transform), Changed<Position>>) {
+    for (pos, mut transform) in pos {
+        transform.translation = pos.to_world();
+    }
+}
+
+fn update_hand_world_pos(
+    hand_pos: Query<(&PositionInHand, &mut Transform), Changed<PositionInHand>>,
+) {
+    for (pos, mut transform) in hand_pos {
+        transform.translation = pos.to_hand_translation();
     }
 }
 
