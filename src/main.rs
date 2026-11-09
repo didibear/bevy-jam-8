@@ -23,10 +23,7 @@ fn main() {
         .add_systems(OnEnter(Phase::Choosing), spawn_hand.spawn())
         .add_systems(
             Update,
-            (
-                move_hand,
-                rotate_hand,
-            )
+            (move_hand, rotate_hand, drop_hand)
                 .chain()
                 .run_if(in_state(Phase::Choosing)),
         )
@@ -65,13 +62,12 @@ struct PositionInHand(i32, i32);
 impl PositionInHand {
     fn to_hand_translation(&self) -> Vec3 {
         let PositionInHand(x, y) = *self;
-
         let pos = Vec3::new(x as f32, y as f32, 0.0);
         pos * CELL_SIZE
     }
 
-    fn to_world_translation(&self, hand_transform: Vec3) -> Vec3 {
-        self.to_hand_translation()
+    fn to_game_position(&self, hand_pos: &Position) -> Position {
+        Position(hand_pos.0 + self.0, hand_pos.1 + self.1)
     }
 }
 
@@ -105,7 +101,7 @@ fn cauldron() -> impl Scene {
     }
 }
 
-fn spawn_hand() -> impl SceneList {
+fn spawn_hand() -> impl Scene {
     let mut rng = rand::rng();
     let item_a = Item(rng.random_range(0..3));
     let item_b = Item(rng.random_range(0..3));
@@ -194,6 +190,31 @@ fn rotate_hand(
     if hand_pos.0 > GRID_WIDTH - hand_size {
         hand_pos.0 -= 1;
     }
+}
+
+fn drop_hand(
+    mut commands: Commands,
+    keys: Res<ButtonInput<KeyCode>>,
+    hand: Single<(Entity, &Position), With<Hand>>,
+    hand_item_pos: Query<(Entity, &PositionInHand)>,
+) {
+    if !keys.just_pressed(KeyCode::ArrowDown) {
+        return;
+    }
+    let (hand_entity, hand_pos) = hand.into_inner();
+
+    // Detach the item from the hand into the game
+    for (item_entity, pos_in_hand) in hand_item_pos {
+        commands
+            .entity(item_entity)
+            .remove_parent_in_place()
+            .remove::<PositionInHand>()
+            .insert(pos_in_hand.to_game_position(hand_pos));
+    }
+
+    // Spawn a new hand
+    commands.entity(hand_entity).despawn();
+    commands.spawn_scene(spawn_hand());
 }
 
 const HAND_ANIMATION_SPEED: f32 = 300.0;
