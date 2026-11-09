@@ -1,5 +1,5 @@
 use crate::{
-    CLOSE_ENOUGH_DISTANCE, Phase, Position,
+    CLOSE_ENOUGH_DISTANCE, GRID_HEIGHT, Phase, Position,
     items::{self},
 };
 use bevy::prelude::*;
@@ -10,6 +10,7 @@ pub struct ItemFalling;
 pub fn start_falling(
     mut commands: Commands,
     items: Query<(Entity, &mut Position), With<items::Item>>,
+    mut next: ResMut<NextState<Phase>>,
 ) {
     let all_pos: Vec<Position> = items.iter().map(|(_, pos)| *pos).collect();
 
@@ -44,6 +45,10 @@ pub fn items_fall(
         let remaining = pos.to_world() - transform.translation;
         if remaining.length_squared() <= CLOSE_ENOUGH_DISTANCE {
             commands.entity(entity).remove::<ItemFalling>();
+
+            if pos.1 >= GRID_HEIGHT {
+                next.set(Phase::Lose);
+            }
         }
     }
 }

@@ -1,4 +1,6 @@
+use bevy::ecs::system::command;
 use bevy::prelude::*;
+use bevy::transform::commands;
 use bevy::window::WindowResolution;
 
 use bevy::audio::{AudioPlugin, Volume};
@@ -72,6 +74,8 @@ fn main() {
             )
                 .run_if(in_state(Phase::Merging)),
         )
+        .add_systems(OnEnter(Phase::Lose), lose_screen.spawn())
+        .add_systems(Update, press_to_restart)
         .init_resource::<assets::AllAssets>()
         .run();
 }
@@ -116,6 +120,25 @@ fn cauldron() -> impl Scene {
             color: Color::srgb(0.1, 0.1, 0.15),
             custom_size: background_size,
         }
+    }
+}
+
+fn lose_screen() -> impl Scene {
+    bsn! {
+        Text2d::new("The chauldron exploded !\nPress Space to restart")
+        Transform::from_translation(Vec3::new(0.0, 0.0, 10.0))
+    }
+}
+
+fn press_to_restart(
+    mut commands: Commands,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut next: ResMut<NextState<Phase>>,
+) {
+    if keys.just_pressed(KeyCode::Space) {
+        commands.despawn_all::<With<items::Item>>();
+        commands.despawn_all::<With<hand::Hand>>();
+        next.set(Phase::Choosing);
     }
 }
 
