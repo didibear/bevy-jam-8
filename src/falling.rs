@@ -32,7 +32,7 @@ pub fn items_fall(
     mut next: ResMut<NextState<Phase>>,
 ) {
     if falling_items.is_empty() {
-        next.set(Phase::Choosing);
+        next.set(Phase::Merging);
     }
     for (entity, pos, transform) in falling_items {
         let remaining = pos.to_world() - transform.translation;

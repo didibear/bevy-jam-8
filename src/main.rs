@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 use rand::RngExt;
 
-mod hand;
-
 mod falling;
+mod hand;
+mod merges;
 
 const GRID_WIDTH: i32 = 5;
 const GRID_HEIGHT: i32 = 8;
@@ -38,12 +38,17 @@ fn main() {
             Update,
             (falling::items_fall).run_if(in_state(Phase::Falling)),
         )
-        // .add_systems(
-        //     Update,
-        //     (move_hand, rotate_hand, drop_hand)
-        //         .chain()
-        //         .run_if(in_state(Phase::Choosing)),
-        // )
+        // Merging
+        .add_systems(OnEnter(Phase::Merging), merges::find_merges)
+        .add_systems(
+            Update,
+            (
+                merges::merge_animation
+                // , bubbles
+                // , shockwave
+            )
+                .run_if(in_state(Phase::Merging)),
+        )
         .run();
 }
 
@@ -60,7 +65,7 @@ type ItemKind = u8;
 #[derive(Component, Clone, Copy, PartialEq, Default)]
 struct Item(ItemKind);
 
-#[derive(Component, Clone, Copy, PartialEq, Default)]
+#[derive(Component, Clone, Copy, PartialEq, Eq, Hash, Default)]
 struct Position(i32, i32);
 
 impl Position {
@@ -106,14 +111,6 @@ fn update_world_pos(positions: Query<(&Position, &mut Transform)>, time: Res<Tim
         transform.translation += direction;
     }
 }
-
-// Falling
-// - on start
-//   - add Moving { from , to } // Tween
-// - update
-//   - move to `to` position with tweening - all have the same speed / velocity
-//   - remove Moving once finished
-//   - if no Moving - go to merging phase
 
 // Merging
 // - on start
