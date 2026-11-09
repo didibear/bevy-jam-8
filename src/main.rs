@@ -25,6 +25,7 @@ fn main() {
             Update,
             (
                 move_hand,
+                rotate_hand,
             )
                 .chain()
                 .run_if(in_state(Phase::Choosing)),
@@ -158,17 +159,65 @@ fn move_hand(
     pos.0 = next_x;
 }
 
-fn update_world_pos(pos: Query<(&Position, &mut Transform), Changed<Position>>) {
-    for (pos, mut transform) in pos {
-        transform.translation = pos.to_world();
+fn rotate_hand(
+    keys: Res<ButtonInput<KeyCode>>,
+    hand: Single<(&mut Position, &Children), With<Hand>>,
+    mut hand_item_pos: Query<&mut PositionInHand>,
+) {
+    if !keys.just_pressed(KeyCode::ArrowUp) {
+        return;
+    }
+
+    // Rotate around the center of the 2x2 box
+    for mut pos in hand_item_pos.iter_mut() {
+        let next_pos = match *pos {
+            PositionInHand(0, 0) => PositionInHand(1, 0),
+            PositionInHand(1, 0) => PositionInHand(1, 1),
+            PositionInHand(1, 1) => PositionInHand(0, 1),
+            PositionInHand(0, 1) => PositionInHand(0, 0),
+            _ => PositionInHand(0, 0),
+        };
+        pos.0 = next_pos.0;
+        pos.1 = next_pos.1;
+    }
+
+    let (mut hand_pos, children) = hand.into_inner();
+
+    // Move the hand back if too big
+    let hand_size = children
+        .into_iter()
+        .flat_map(|child| hand_item_pos.get(*child))
+        .map(|pos| pos.0 + 1)
+        .max()
+        .unwrap_or(1);
+
+    if hand_pos.0 > GRID_WIDTH - hand_size {
+        hand_pos.0 -= 1;
     }
 }
 
-fn update_hand_world_pos(
-    hand_pos: Query<(&PositionInHand, &mut Transform), Changed<PositionInHand>>,
-) {
+const HAND_ANIMATION_SPEED: f32 = 300.0;
+const CLOSE_ENOUGH_DISTANCE: f32 = 10.0;
+
+fn update_world_pos(positions: Query<(&Position, &mut Transform)>, time: Res<Time>) {
+    for (pos, mut transform) in positions {
+        let movement = pos.to_world() - transform.translation;
+        if movement.length_squared() <= CLOSE_ENOUGH_DISTANCE {
+            continue;
+        }
+        let direction = movement.normalize() * time.delta_secs() * HAND_ANIMATION_SPEED;
+        transform.translation += direction;
+    }
+}
+
+fn update_hand_world_pos(hand_pos: Query<(&PositionInHand, &mut Transform)>, time: Res<Time>) {
     for (pos, mut transform) in hand_pos {
-        transform.translation = pos.to_hand_translation();
+        let movement = pos.to_hand_translation() - transform.translation;
+        if movement.length_squared() <= CLOSE_ENOUGH_DISTANCE {
+            continue;
+        }
+        let direction = movement.normalize() * time.delta_secs() * HAND_ANIMATION_SPEED;
+        transform.translation += direction;
     }
 }
 
