@@ -1,6 +1,8 @@
 use crate::{
-    CELL_SIZE, CLOSE_ENOUGH_DISTANCE, GRID_HEIGHT, GRID_WIDTH, Item, MOVEMENT_SPEED, Phase,
-    Position, assets::AllAssets, sounds::play_random_sound,
+    CELL_SIZE, CLOSE_ENOUGH_DISTANCE, GRID_HEIGHT, GRID_WIDTH, MOVEMENT_SPEED, Phase, Position,
+    assets::AllAssets,
+    items::{self, Item},
+    sounds::play_random_sound,
 };
 use bevy::{platform::collections::HashSet, prelude::*};
 
@@ -25,16 +27,20 @@ impl PositionInHand {
 pub fn spawn_hand(
     mut commands: Commands,
     assets: Res<AllAssets>,
-    existing_items: Query<&Item, Without<PositionInHand>>,
+    existing_items: Query<&items::Item, Without<PositionInHand>>,
 ) {
-    let available_items: HashSet<Item> = existing_items
+    let available_items: HashSet<items::Item> = existing_items
         .iter()
         .cloned()
-        .chain([Item::Natural(0), Item::Mineral(0), Item::Halloween(0)])
+        .chain([
+            items::Item::Natural(0),
+            items::Item::Mineral(0),
+            items::Item::Halloween(0),
+        ])
         .collect();
 
-    let item_a = Item::random(&available_items);
-    let item_b = Item::random(&available_items);
+    let item_a = items::Item::random(&available_items);
+    let item_b = items::Item::random(&available_items);
 
     let sprite_a = Sprite::from_image(item_a.sprite(&assets));
     let sprite_b = Sprite::from_image(item_b.sprite(&assets));
@@ -53,13 +59,13 @@ pub fn spawn_hand(
             item_a,
             sprite_a,
             hand_pos_a,
-            Item::transform(hand_pos_a.to_hand_translation()),
+            items::Item::transform(hand_pos_a.to_hand_translation()),
         ))
         .with_child((
             item_b,
             sprite_b,
             hand_pos_b,
-            Item::transform(hand_pos_b.to_hand_translation()),
+            items::Item::transform(hand_pos_b.to_hand_translation()),
         ));
 }
 

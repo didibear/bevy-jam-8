@@ -1,10 +1,16 @@
-use crate::{CLOSE_ENOUGH_DISTANCE, Item, Phase, Position};
+use crate::{
+    CLOSE_ENOUGH_DISTANCE, Phase, Position,
+    items::{self},
+};
 use bevy::prelude::*;
 
 #[derive(Component, Clone, Copy, PartialEq, Default)]
 pub struct ItemFalling;
 
-pub fn start_falling(mut commands: Commands, items: Query<(Entity, &mut Position), With<Item>>) {
+pub fn start_falling(
+    mut commands: Commands,
+    items: Query<(Entity, &mut Position), With<items::Item>>,
+) {
     let all_pos: Vec<Position> = items.iter().map(|(_, pos)| *pos).collect();
 
     for (entity, mut pos) in items {

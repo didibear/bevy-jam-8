@@ -3,25 +3,28 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::{
-    CLOSE_ENOUGH_DISTANCE, Item, Phase, Position, assets::AllAssets, sounds::play_random_sound,
+    CLOSE_ENOUGH_DISTANCE, Phase, Position,
+    assets::AllAssets,
+    items::{self},
+    sounds::play_random_sound,
 };
 
 #[derive(Component, Clone, PartialEq)]
 pub struct BeingMerged {
     pub items: Vec<Entity>,
     pub end_pos: Position,
-    pub next_item: Option<Item>,
+    pub next_item: Option<items::Item>,
 }
 
 pub fn find_merges(
     mut commands: Commands,
     assets: Res<AllAssets>,
-    items: Query<(Entity, &mut Position, &Item), With<Item>>,
+    items: Query<(Entity, &mut Position, &items::Item), With<items::Item>>,
     mut next: ResMut<NextState<Phase>>,
 ) {
-    type ItemPos = (Entity, Position, Item);
+    type ItemPos = (Entity, Position, items::Item);
 
-    fn to_item((ent, pos, it): (Entity, &Position, &Item)) -> ItemPos {
+    fn to_item((ent, pos, it): (Entity, &Position, &items::Item)) -> ItemPos {
         (ent, *pos, *it)
     }
 
@@ -139,7 +142,7 @@ pub fn merge_animation(
                 next_item,
                 Sprite::from_image(next_item.sprite(&assets)),
                 pos,
-                Item::transform(pos.to_world()),
+                items::Item::transform(pos.to_world()),
             ));
         }
     }
