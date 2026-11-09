@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 
-use crate::{CLOSE_ENOUGH_DISTANCE, Item, Phase, Position, assets::AllAssets};
+use crate::{
+    CLOSE_ENOUGH_DISTANCE, Item, Phase, Position, assets::AllAssets, sounds::play_random_sound,
+};
 
 #[derive(Component, Clone, PartialEq)]
 pub struct BeingMerged {
@@ -13,6 +15,7 @@ pub struct BeingMerged {
 
 pub fn find_merges(
     mut commands: Commands,
+    assets: Res<AllAssets>,
     items: Query<(Entity, &mut Position, &Item), With<Item>>,
     mut next: ResMut<NextState<Phase>>,
 ) {
@@ -83,6 +86,8 @@ pub fn find_merges(
 
     if !merge_will_happen {
         next.set(Phase::Choosing);
+    } else {
+        commands.spawn(play_random_sound(&assets.merge_sound));
     }
 }
 

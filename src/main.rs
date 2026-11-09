@@ -3,11 +3,13 @@ use bevy::{platform::collections::HashSet, prelude::*};
 use rand::seq::IteratorRandom;
 
 use crate::{Item::Natural, assets::AllAssets};
+use bevy::audio::{AudioPlugin, Volume};
 
 mod assets;
 mod falling;
 mod hand;
 mod merges;
+mod sounds;
 
 const GRID_WIDTH: i32 = 5;
 const GRID_HEIGHT: i32 = 8;
@@ -22,20 +24,25 @@ const CLOSE_ENOUGH_DISTANCE: f32 = 10.0;
 fn main() {
     App::new()
         .add_plugins(
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Window {
-                    title: "Bevy Jam #8 - Alchemy".to_string(),
-                    fit_canvas_to_parent: true,
-                    prevent_default_event_handling: true,
-                    resolution: WindowResolution::new(
-                        ((GRID_WIDTH + 2) as f32 * CELL_SIZE) as u32,
-                        ((GRID_HEIGHT + 4) as f32 * CELL_SIZE) as u32,
-                    ),
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Window {
+                        title: "Bevy Jam #8 - Alchemy".to_string(),
+                        fit_canvas_to_parent: true,
+                        prevent_default_event_handling: true,
+                        resolution: WindowResolution::new(
+                            ((GRID_WIDTH + 2) as f32 * CELL_SIZE) as u32,
+                            ((GRID_HEIGHT + 4) as f32 * CELL_SIZE) as u32,
+                        ),
+                        ..default()
+                    }
+                    .into(),
                     ..default()
-                }
-                .into(),
-                ..default()
-            }),
+                })
+                .set(AudioPlugin {
+                    global_volume: GlobalVolume::new(Volume::Linear(0.3)),
+                    ..default()
+                }),
         )
         .init_state::<Phase>()
         .add_systems(Startup, setup.spawn())

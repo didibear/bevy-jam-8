@@ -1,6 +1,6 @@
 use crate::{
     CELL_SIZE, CLOSE_ENOUGH_DISTANCE, GRID_HEIGHT, GRID_WIDTH, Item, MOVEMENT_SPEED, Phase,
-    Position, assets::AllAssets,
+    Position, assets::AllAssets, sounds::play_random_sound,
 };
 use bevy::{platform::collections::HashSet, prelude::*};
 
@@ -130,6 +130,7 @@ pub fn rotate_hand(
 pub fn drop_hand(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
+    assets: Res<AllAssets>,
     hand: Single<(Entity, &Position), With<Hand>>,
     hand_item_pos: Query<(Entity, &PositionInHand), With<Item>>,
     mut next: ResMut<NextState<Phase>>,
@@ -149,6 +150,8 @@ pub fn drop_hand(
     }
 
     commands.entity(hand_entity).despawn_children().despawn();
+
+    commands.spawn(play_random_sound(&assets.drop_sound));
     next.set(Phase::Falling);
 }
 
