@@ -1,11 +1,8 @@
-use bevy::prelude::*;
 use bevy::window::WindowResolution;
-use rand::RngExt;
+use bevy::{platform::collections::HashSet, prelude::*};
+use rand::seq::IteratorRandom;
 
-use crate::{
-    Item::{Halloween, Mineral, Natural},
-    assets::AllAssets,
-};
+use crate::{Item::Natural, assets::AllAssets};
 
 mod assets;
 mod falling;
@@ -17,7 +14,7 @@ const GRID_HEIGHT: i32 = 8;
 
 const GRID: Vec2 = Vec2::new(GRID_WIDTH as f32, GRID_HEIGHT as f32);
 const CELL_SIZE: f32 = 60.0;
-const SPRITE_SCALE: f32 = 0.1;
+const SPRITE_SCALE: f32 = 0.09;
 
 const MOVEMENT_SPEED: f32 = 500.0;
 const CLOSE_ENOUGH_DISTANCE: f32 = 10.0;
@@ -52,7 +49,6 @@ fn main() {
         )
         .add_systems(Update, (update_world_pos, hand::update_hand_world_pos))
         // Falling
-        // .add_systems(OnEnter(Phase::Falling), falling::start_falling)
         .add_systems(
             Update,
             (falling::start_falling, falling::items_fall)
@@ -82,7 +78,7 @@ enum Phase {
     Merging,
 }
 
-#[derive(Component, Clone, Copy, PartialEq)]
+#[derive(Component, Clone, Copy, PartialEq, Eq, Hash)]
 enum Item {
     Natural(usize),
     Mineral(usize),
@@ -91,23 +87,13 @@ enum Item {
 }
 
 impl Item {
-    fn name(&self) -> String {
-        match self {
-            Item::Natural(i) => format!("N{i}"),
-            Item::Mineral(i) => format!("M{i}"),
-            Item::Halloween(i) => format!("H{i}"),
-            Item::PhilosopherStone => format!("P"),
-        }
-    }
-
-    fn random() -> Item {
+    fn random(available_items: &HashSet<Item>) -> Item {
         let mut rng = rand::rng();
-        match rng.random_range(0..3) {
-            0 => Natural(0),
-            1 => Mineral(0),
-            2 => Halloween(0),
-            _ => Natural(0),
-        }
+
+        *available_items
+            .iter()
+            .choose(&mut rng)
+            .unwrap_or(&Natural(0))
     }
 
     fn sprite(&self, assets: &AllAssets) -> Handle<Image> {
@@ -128,7 +114,7 @@ impl Item {
     }
 
     fn next_item(&self) -> Option<Item> {
-        const NB_ITEMS: usize = 4;
+        const NB_ITEMS: usize = 3;
         match *self {
             Item::Natural(i) => (i < NB_ITEMS).then_some(Item::Natural(i + 1)),
             Item::Mineral(i) => (i < NB_ITEMS).then_some(Item::Mineral(i + 1)),

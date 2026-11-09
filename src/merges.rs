@@ -53,7 +53,7 @@ pub fn find_merges(
             }
         }
         // Consider merged items as done
-        todo.retain(|it| items_to_merge.contains(it));
+        todo.retain(|it| !items_to_merge.contains(it));
 
         if items_to_merge.len() < 3 {
             continue;
