@@ -1,5 +1,6 @@
 use crate::{
-    CELL_SIZE, CLOSE_ENOUGH_DISTANCE, GRID_HEIGHT, GRID_WIDTH, Item, MOVEMENT_SPEED, Position,
+    CELL_SIZE, CLOSE_ENOUGH_DISTANCE, GRID_HEIGHT, GRID_WIDTH, Item, MOVEMENT_SPEED, Phase,
+    Position,
 };
 use bevy::prelude::*;
 use rand::RngExt;
@@ -118,6 +119,7 @@ pub fn drop_hand(
     keys: Res<ButtonInput<KeyCode>>,
     hand: Single<(Entity, &Position), With<Hand>>,
     hand_item_pos: Query<(Entity, &PositionInHand)>,
+    mut next: ResMut<NextState<Phase>>,
 ) {
     if !keys.just_pressed(KeyCode::ArrowDown) {
         return;
@@ -133,9 +135,8 @@ pub fn drop_hand(
             .insert(pos_in_hand.to_game_position(hand_pos));
     }
 
-    // Spawn a new hand
     commands.entity(hand_entity).despawn();
-    commands.spawn_scene(spawn_hand());
+    next.set(Phase::Falling);
 }
 
 pub fn update_hand_world_pos(hand_pos: Query<(&PositionInHand, &mut Transform)>, time: Res<Time>) {

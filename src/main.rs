@@ -3,6 +3,8 @@ use rand::RngExt;
 
 mod hand;
 
+mod falling;
+
 const GRID_WIDTH: i32 = 5;
 const GRID_HEIGHT: i32 = 8;
 
@@ -30,6 +32,12 @@ fn main() {
                 .run_if(in_state(Phase::Choosing)),
         )
         .add_systems(Update, (update_world_pos, hand::update_hand_world_pos))
+        // Falling
+        .add_systems(OnEnter(Phase::Falling), falling::start_falling)
+        .add_systems(
+            Update,
+            (falling::items_fall).run_if(in_state(Phase::Falling)),
+        )
         // .add_systems(
         //     Update,
         //     (move_hand, rotate_hand, drop_hand)
