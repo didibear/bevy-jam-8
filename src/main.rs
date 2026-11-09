@@ -1,5 +1,5 @@
-use bevy::window::WindowResolution;
 use bevy::prelude::*;
+use bevy::window::WindowResolution;
 
 use bevy::audio::{AudioPlugin, Volume};
 
@@ -82,6 +82,7 @@ enum Phase {
     Choosing,
     Falling,
     Merging,
+    Lose,
 }
 
 #[derive(Component, Clone, Copy, PartialEq, Eq, Hash, Default)]

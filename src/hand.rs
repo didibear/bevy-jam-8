@@ -16,7 +16,8 @@ impl PositionInHand {
     fn to_hand_translation(&self) -> Vec3 {
         let PositionInHand(x, y) = *self;
         let pos = Vec3::new(x as f32, y as f32, 0.0);
-        pos * CELL_SIZE
+        let hand_shift = Vec3::new(0.0, -CELL_SIZE * 0.5, 0.0);
+        pos * CELL_SIZE + hand_shift
     }
 
     fn to_game_position(&self, hand_pos: &Position) -> Position {
@@ -45,7 +46,7 @@ pub fn spawn_hand(
     let sprite_a = Sprite::from_image(item_a.sprite(&assets));
     let sprite_b = Sprite::from_image(item_b.sprite(&assets));
 
-    let hand_pos = Position(2, GRID_HEIGHT as i32);
+    let hand_pos = Position(2, GRID_HEIGHT + 1 as i32);
     let hand_pos_a = PositionInHand(0, 0);
     let hand_pos_b = PositionInHand(1, 0);
 
@@ -83,14 +84,16 @@ pub fn move_hand(
     let (mut pos, children) = hand.into_inner();
     let next_x = pos.0 + dx;
 
-    let hand_size = children
+    let in_hand_xs: Vec<i32> = children
         .into_iter()
         .flat_map(|child| hand_item_pos.get(*child))
-        .map(|pos| pos.0 + 1)
-        .max()
-        .unwrap_or(1);
+        .map(|pos| pos.0)
+        .collect();
 
-    if next_x < 0 || GRID_WIDTH - hand_size < next_x {
+    let hand_x_min = in_hand_xs.iter().min().unwrap_or(&0);
+    let hand_x_max = in_hand_xs.iter().max().unwrap_or(&0);
+
+    if next_x < 0 - hand_x_min || (GRID_WIDTH - 1) - hand_x_max < next_x {
         return; // outside
     }
     pos.0 = next_x;
@@ -121,15 +124,20 @@ pub fn rotate_hand(
     let (mut hand_pos, children) = hand.into_inner();
 
     // Move the hand back if too big
-    let hand_size = children
+    let in_hand_xs: Vec<i32> = children
         .into_iter()
         .flat_map(|child| hand_item_pos.get(*child))
-        .map(|pos| pos.0 + 1)
-        .max()
-        .unwrap_or(1);
+        .map(|pos| pos.0)
+        .collect();
 
-    if hand_pos.0 > GRID_WIDTH - hand_size {
+    let hand_x_min = in_hand_xs.iter().min().unwrap_or(&0);
+    let hand_x_max = in_hand_xs.iter().max().unwrap_or(&0);
+
+    if hand_pos.0 > (GRID_WIDTH - 1) - hand_x_max {
         hand_pos.0 -= 1;
+    }
+    if hand_pos.0 < 0 - hand_x_min {
+        hand_pos.0 += 1;
     }
 }
 
