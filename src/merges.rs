@@ -1,20 +1,20 @@
 use std::collections::HashMap;
 
-use bevy::{color::palettes::css::*, prelude::*};
-use rand::RngExt;
+use bevy::prelude::*;
 
-use crate::{CELL_SIZE, Item, Phase, Position};
+use crate::{CLOSE_ENOUGH_DISTANCE, Item, ItemKind, Phase, Position};
 
 #[derive(Component, Clone, PartialEq, Default)]
 pub struct BeingMerged {
     pub items: Vec<Entity>,
     pub end_pos: Position,
-    // next_item_kind: ItemKind,
+    next_item_kind: ItemKind,
 }
 
 pub fn find_merges(
     mut commands: Commands,
     items: Query<(Entity, &mut Position, &Item), With<Item>>,
+    mut next: ResMut<NextState<Phase>>,
 ) {
     type ItemPos = (Entity, Position, Item);
 
@@ -31,6 +31,7 @@ pub fn find_merges(
             .into_iter()
             .filter_map(move |(i, j)| items.get(&Position(pos.0 + i, pos.1 + j)))
     };
+    let mut merge_will_happen = false;
 
     while let Some(it) = todo.pop() {
         let (_, pos, item) = it;
@@ -57,6 +58,7 @@ pub fn find_merges(
         if items_to_merge.len() < 3 {
             continue;
         }
+        merge_will_happen = true;
 
         let end_pos = *items_to_merge
             .iter()
@@ -65,26 +67,70 @@ pub fn find_merges(
             .expect("End position");
 
         let merged_entities: Vec<Entity> = items_to_merge.iter().map(|(ent, _, _)| *ent).collect();
-        for (entity, _, _) in items_to_merge.iter() {
-            commands.entity(*entity).insert(BeingMerged {
-                items: merged_entities.clone(),
-                end_pos,
-                // next_item_kind:
-            });
+        for (entity, _, item) in items_to_merge.iter() {
+            commands
+                .entity(*entity)
+                .insert(BeingMerged {
+                    items: merged_entities.clone(),
+                    end_pos,
+                    next_item_kind: item.0 + 1,
+                })
+                // Simplify the animation by just going into the position
+                .remove::<Position>()
+                .insert(end_pos);
         }
+    }
+
+    if !merge_will_happen {
+        next.set(Phase::Choosing);
     }
 }
 
 pub fn merge_animation(
-    mut gizmos: Gizmos,
-    items: Query<(&Position, &Transform, &BeingMerged)>,
+    mut commands: Commands,
+    merging_items: Query<(Entity, &Position, &Transform, &BeingMerged)>,
     mut next: ResMut<NextState<Phase>>,
 ) {
-    if items.is_empty() {
-        next.set(Phase::Choosing);
+    // Skip if the find_merges found no merges
+    if matches!(
+        *next,
+        NextState::Pending(Phase::Choosing) | NextState::PendingIfDifferent(Phase::Choosing)
+    ) {
+        return;
     }
-    for (pos, tranform, merge) in items {
-        let color = if *pos == merge.end_pos { BLUE } else { RED };
-        gizmos.circle_2d(tranform.translation.truncate(), CELL_SIZE * 0.5, color);
+
+    if merging_items.is_empty() {
+        next.set(Phase::Falling);
+    }
+
+    let mut groups: HashMap<Position, Vec<_>> = HashMap::new();
+    for it in &merging_items {
+        groups.entry(it.3.end_pos).or_default().push(it);
+    }
+
+    for (_, items) in groups.iter() {
+        let all_finished = items.iter().all(|(_, pos, transform, _)| {
+            let remaining = pos.to_world() - transform.translation;
+            remaining.length_squared() <= CLOSE_ENOUGH_DISTANCE
+        });
+
+        if all_finished {
+            // Remove old items
+            for (entity, _, _, _) in items.iter() {
+                commands.entity(*entity).despawn();
+            }
+
+            // Spawn new item
+            let it = items.iter().next().expect("Item merged");
+            let (_, &pos, _, merged) = *it;
+
+            let next_item = Item(merged.next_item_kind);
+            commands.spawn((
+                next_item,
+                Text2d::new(next_item.0.to_string()),
+                pos,
+                Transform::from_translation(pos.to_world()),
+            ));
+        }
     }
 }

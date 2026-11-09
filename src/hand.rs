@@ -24,6 +24,7 @@ impl PositionInHand {
 }
 
 pub fn spawn_hand() -> impl Scene {
+    dbg!("Spawn hand");
     let mut rng = rand::rng();
     let item_a = Item(rng.random_range(0..3));
     let item_b = Item(rng.random_range(0..3));
@@ -118,7 +119,7 @@ pub fn drop_hand(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     hand: Single<(Entity, &Position), With<Hand>>,
-    hand_item_pos: Query<(Entity, &PositionInHand)>,
+    hand_item_pos: Query<(Entity, &PositionInHand), With<Item>>,
     mut next: ResMut<NextState<Phase>>,
 ) {
     if !keys.just_pressed(KeyCode::ArrowDown) {
