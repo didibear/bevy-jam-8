@@ -2,13 +2,13 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 
-use crate::{CLOSE_ENOUGH_DISTANCE, Item, ItemKind, Phase, Position};
+use crate::{CLOSE_ENOUGH_DISTANCE, Item, Phase, Position, assets::AllAssets};
 
-#[derive(Component, Clone, PartialEq, Default)]
+#[derive(Component, Clone, PartialEq)]
 pub struct BeingMerged {
     pub items: Vec<Entity>,
     pub end_pos: Position,
-    next_item_kind: ItemKind,
+    pub next_item: Option<Item>,
 }
 
 pub fn find_merges(
@@ -73,7 +73,7 @@ pub fn find_merges(
                 .insert(BeingMerged {
                     items: merged_entities.clone(),
                     end_pos,
-                    next_item_kind: item.0 + 1,
+                    next_item: item.next_item(),
                 })
                 // Simplify the animation by just going into the position
                 .remove::<Position>()
@@ -90,6 +90,7 @@ pub fn merge_animation(
     mut commands: Commands,
     merging_items: Query<(Entity, &Position, &Transform, &BeingMerged)>,
     mut next: ResMut<NextState<Phase>>,
+    assets: Res<AllAssets>,
 ) {
     // Skip if the find_merges found no merges
     if matches!(
@@ -124,12 +125,16 @@ pub fn merge_animation(
             let it = items.iter().next().expect("Item merged");
             let (_, &pos, _, merged) = *it;
 
-            let next_item = Item(merged.next_item_kind);
+            let Some(next_item) = merged.next_item else {
+                dbg!("AHNIHILATION");
+                continue;
+            };
+
             commands.spawn((
                 next_item,
-                Text2d::new(next_item.0.to_string()),
+                Sprite::from_image(next_item.sprite(&assets)),
                 pos,
-                Transform::from_translation(pos.to_world()),
+                Item::transform(pos.to_world()),
             ));
         }
     }

@@ -1,6 +1,6 @@
 use crate::{
     CELL_SIZE, CLOSE_ENOUGH_DISTANCE, GRID_HEIGHT, GRID_WIDTH, Item, MOVEMENT_SPEED, Phase,
-    Position,
+    Position, SPRITE_SCALE, assets::AllAssets,
 };
 use bevy::prelude::*;
 use rand::RngExt;
@@ -23,32 +23,48 @@ impl PositionInHand {
     }
 }
 
-pub fn spawn_hand() -> impl Scene {
-    dbg!("Spawn hand");
-    let mut rng = rand::rng();
-    let item_a = Item(rng.random_range(0..3));
-    let item_b = Item(rng.random_range(0..3));
+pub fn spawn_hand(mut commands: Commands, assets: Res<AllAssets>) {
+    let item_a = Item::random();
+    let item_b = Item::random();
+
+    let sprite_a = Sprite::from_image(item_a.sprite(&assets));
+    let sprite_b = Sprite::from_image(item_b.sprite(&assets));
 
     let hand_pos = Position(2, GRID_HEIGHT as i32 + 1);
     let hand_pos_a = PositionInHand(0, 0);
     let hand_pos_b = PositionInHand(1, 0);
 
-    bsn! {
-        Hand
-        hand_pos
-        Transform::from_translation(hand_pos.to_world())
-        Children [
-            item_a
-            Text2d::new(item_a.0.to_string())
-            hand_pos_a
-            Transform::from_translation(hand_pos_a.to_hand_translation())
-            --
-            item_b
-            Text2d::new(item_b.0.to_string())
-            hand_pos_b
-            Transform::from_translation(hand_pos_b.to_hand_translation())
-        ]
-    }
+    commands
+        .spawn((
+            Hand,
+            hand_pos,
+            Transform::from_translation(hand_pos.to_world()),
+        ))
+        .with_child((
+            item_a,
+            sprite_a,
+            hand_pos_a,
+            Item::transform(hand_pos_a.to_hand_translation()),
+        ))
+        .with_child((
+            item_b,
+            sprite_b,
+            hand_pos_b,
+            Item::transform(hand_pos_b.to_hand_translation()),
+        ));
+    // bsn! {
+    //     Children [
+    //         item_a
+    //         sprite_a
+    //         hand_pos_a
+    //         Transform::from_translation(hand_pos_a.to_hand_translation())
+    //         --
+    //         item_b
+    //         sprite_b
+    //         hand_pos_b
+    //         Transform::from_translation(hand_pos_b.to_hand_translation())
+    //     ]
+    // }
 }
 
 pub fn move_hand(
@@ -136,7 +152,7 @@ pub fn drop_hand(
             .insert(pos_in_hand.to_game_position(hand_pos));
     }
 
-    commands.entity(hand_entity).despawn();
+    commands.entity(hand_entity).despawn_children().despawn();
     next.set(Phase::Falling);
 }
 
@@ -146,7 +162,8 @@ pub fn update_hand_world_pos(hand_pos: Query<(&PositionInHand, &mut Transform)>,
         if movement.length_squared() <= CLOSE_ENOUGH_DISTANCE {
             continue;
         }
-        let direction = movement.normalize() * time.delta_secs() * MOVEMENT_SPEED;
-        transform.translation += direction;
+        let step = (movement.normalize() * time.delta_secs() * MOVEMENT_SPEED)
+            .clamp_length_max(movement.length());
+        transform.translation += step;
     }
 }

@@ -1,6 +1,13 @@
 use bevy::prelude::*;
+use bevy::window::WindowResolution;
 use rand::RngExt;
 
+use crate::{
+    Item::{Halloween, Mineral, Natural},
+    assets::AllAssets,
+};
+
+mod assets;
 mod falling;
 mod hand;
 mod merges;
@@ -9,22 +16,34 @@ const GRID_WIDTH: i32 = 5;
 const GRID_HEIGHT: i32 = 8;
 
 const GRID: Vec2 = Vec2::new(GRID_WIDTH as f32, GRID_HEIGHT as f32);
-const CELL_SIZE: f32 = 40.0;
+const CELL_SIZE: f32 = 60.0;
+const SPRITE_SCALE: f32 = 0.1;
+
+const MOVEMENT_SPEED: f32 = 500.0;
+const CLOSE_ENOUGH_DISTANCE: f32 = 10.0;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        // .add_plugins(DefaultPlugins.set(AssetPlugin {
-        //     // Wasm builds will check for meta files (that don't exist) if this isn't set.
-        //     // This causes errors and even panics in web builds on itch.
-        //     // See https://github.com/bevyengine/bevy_github_ci_template/issues/48.
-        //     meta_check: AssetMetaCheck::Never,
-        //     ..default()
-        // }))
+        .add_plugins(
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Window {
+                    title: "Bevy Jam #8 - Alchemy".to_string(),
+                    fit_canvas_to_parent: true,
+                    prevent_default_event_handling: true,
+                    resolution: WindowResolution::new(
+                        ((GRID_WIDTH + 2) as f32 * CELL_SIZE) as u32,
+                        ((GRID_HEIGHT + 4) as f32 * CELL_SIZE) as u32,
+                    ),
+                    ..default()
+                }
+                .into(),
+                ..default()
+            }),
+        )
         .init_state::<Phase>()
         .add_systems(Startup, setup.spawn())
         // Choosing
-        .add_systems(OnEnter(Phase::Choosing), hand::spawn_hand.spawn())
+        .add_systems(OnEnter(Phase::Choosing), hand::spawn_hand)
         .add_systems(
             Update,
             (hand::move_hand, hand::rotate_hand, hand::drop_hand)
@@ -33,10 +52,12 @@ fn main() {
         )
         .add_systems(Update, (update_world_pos, hand::update_hand_world_pos))
         // Falling
-        .add_systems(OnEnter(Phase::Falling), falling::start_falling)
+        // .add_systems(OnEnter(Phase::Falling), falling::start_falling)
         .add_systems(
             Update,
-            (falling::items_fall).run_if(in_state(Phase::Falling)),
+            (falling::start_falling, falling::items_fall)
+                .chain()
+                .run_if(in_state(Phase::Falling)),
         )
         // Merging
         .add_systems(OnEnter(Phase::Merging), merges::find_merges)
@@ -49,6 +70,7 @@ fn main() {
             )
                 .run_if(in_state(Phase::Merging)),
         )
+        .init_resource::<assets::AllAssets>()
         .run();
 }
 
@@ -60,10 +82,61 @@ enum Phase {
     Merging,
 }
 
-type ItemKind = u8;
+#[derive(Component, Clone, Copy, PartialEq)]
+enum Item {
+    Natural(usize),
+    Mineral(usize),
+    Halloween(usize),
+    PhilosopherStone,
+}
 
-#[derive(Component, Clone, Copy, PartialEq, Default)]
-struct Item(ItemKind);
+impl Item {
+    fn name(&self) -> String {
+        match self {
+            Item::Natural(i) => format!("N{i}"),
+            Item::Mineral(i) => format!("M{i}"),
+            Item::Halloween(i) => format!("H{i}"),
+            Item::PhilosopherStone => format!("P"),
+        }
+    }
+
+    fn random() -> Item {
+        let mut rng = rand::rng();
+        match rng.random_range(0..3) {
+            0 => Natural(0),
+            1 => Mineral(0),
+            2 => Halloween(0),
+            _ => Natural(0),
+        }
+    }
+
+    fn sprite(&self, assets: &AllAssets) -> Handle<Image> {
+        match *self {
+            Item::Natural(i) => assets.natural_item_sprites[i].clone(),
+            Item::Mineral(i) => assets.mineral_item_sprites[i].clone(),
+            Item::Halloween(i) => assets.halloween_item_sprites[i].clone(),
+            Item::PhilosopherStone => assets.end_item_sprite.clone(),
+        }
+    }
+
+    fn transform(translation: Vec3) -> Transform {
+        Transform {
+            translation,
+            scale: Vec3::splat(SPRITE_SCALE),
+            ..default()
+        }
+    }
+
+    fn next_item(&self) -> Option<Item> {
+        const NB_ITEMS: usize = 4;
+        match *self {
+            Item::Natural(i) => (i < NB_ITEMS).then_some(Item::Natural(i + 1)),
+            Item::Mineral(i) => (i < NB_ITEMS).then_some(Item::Mineral(i + 1)),
+            Item::Halloween(i) => (i < NB_ITEMS).then_some(Item::Halloween(i + 1)),
+            Item::PhilosopherStone => None,
+        }
+    }
+}
 
 #[derive(Component, Clone, Copy, PartialEq, Eq, Hash, Default)]
 struct Position(i32, i32);
@@ -82,6 +155,7 @@ fn setup() -> impl SceneList {
     bsn_list! {
         #Camera
         Camera2d
+        Transform::from_translation(Vec3::new(0.0, CELL_SIZE, 0.0)) // swift down the grid
         --
         @cauldron()
     }
@@ -98,17 +172,15 @@ fn cauldron() -> impl Scene {
     }
 }
 
-pub const MOVEMENT_SPEED: f32 = 300.0;
-pub const CLOSE_ENOUGH_DISTANCE: f32 = 10.0;
-
 fn update_world_pos(positions: Query<(&Position, &mut Transform)>, time: Res<Time>) {
     for (pos, mut transform) in positions {
         let movement = pos.to_world() - transform.translation;
         if movement.length_squared() <= CLOSE_ENOUGH_DISTANCE {
             continue;
         }
-        let direction = movement.normalize() * time.delta_secs() * MOVEMENT_SPEED;
-        transform.translation += direction;
+        let step = (movement.normalize() * time.delta_secs() * MOVEMENT_SPEED)
+            .clamp_length_max(movement.length());
+        transform.translation += step;
     }
 }
 
